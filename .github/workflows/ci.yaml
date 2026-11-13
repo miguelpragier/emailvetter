@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Format, vet, build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      rqlite:
+        image: rqlite/rqlite:10.6.4
+        ports:
+          - 4001:4001
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Check formatting
+        run: |
+          files=$(gofmt -l .)
+          if [ -n "$files" ]; then
+            printf '%s\n' "$files"
+            exit 1
+          fi
+      - name: Vet
+        run: go vet ./...
+      - name: Build
+        run: go build -trimpath -o bin/emailvetter ./cmd/emailvetter
+      - name: Unit tests with race detector
+        run: go test -race -count=1 -timeout=5m ./...
+      - name: Wait for database readiness
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4001/readyz; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo 'rqlite did not become ready' >&2
+          exit 1
+      - name: Integration tests with race detector
+        env:
+          EMAILVETTER_RQLITE_ADDR: http://127.0.0.1:4001
+        run: go test -race -count=1 -timeout=5m -run Integration ./internal/...
+
+  secrets:
+    name: Scan secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITLEAKS_ENABLE_COMMENTS: 'false'

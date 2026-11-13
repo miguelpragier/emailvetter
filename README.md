@@ -193,3 +193,10 @@ The original project code is licensed under the
 [MIT License](https://github.com/miguelpragier/emailvetter/blob/main/LICENSE).
 Third-party domain lists require separate review of their source licenses before
 incorporation; this license does not relicense third-party data.
+
+## Continuous integration
+
+GitHub Actions checks pull requests and pushes to `main` for formatting, Go vet,
+builds, unit and integration tests with the race detector, and secrets. Integration
+tests use a temporary rqlite service; no external database credentials are needed.
+The secrets job checks Git history with Gitleaks.
