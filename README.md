@@ -204,6 +204,17 @@ EMAILVETTER_RQLITE_ADDR=http://127.0.0.1:4001 \
 `task vet` fails when Go files need formatting. Run `gofmt -w` on the listed
 files before submitting changes.
 
+## Related projects
+
+If you're exploring disposable-email domain lists, these related projects are
+also well worth a visit:
+
+- [ivolo/disposable-email-domains](https://github.com/ivolo/disposable-email-domains)
+- [disposable-email-domains/disposable-email-domains](https://github.com/disposable-email-domains/disposable-email-domains)
+
+Thank you to their maintainers and contributors for sharing their work with the
+community!
+
 ## License
 
 The original project code is licensed under the
