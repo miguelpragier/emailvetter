@@ -1,9 +1,11 @@
 package api_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -292,4 +294,48 @@ func TestImportCSV(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	body := decodeBody(t, w)
 	require.Equal(t, float64(2), body["added"])
+}
+
+func TestImportFile(t *testing.T) {
+	s, _ := newTestServer(t)
+	upload := func(key, field, text string, copies int) *httptest.ResponseRecorder {
+		t.Helper()
+		var body bytes.Buffer
+		writer := multipart.NewWriter(&body)
+		for i := 0; i < copies; i++ {
+			part, err := writer.CreateFormFile(field, "domains.txt")
+			require.NoError(t, err)
+			_, err = io.WriteString(part, text)
+			require.NoError(t, err)
+		}
+		require.NoError(t, writer.Close())
+		return do(t, s, http.MethodPost, "/v1/domains/import/file?added_by=list-import", key, writer.FormDataContentType(), body.String())
+	}
+	w := upload(writeKey, "file", "\xef\xbb\xbfExample.test\r\n\r\nsecond.test\nexample.test\nBAD DOMAIN\n", 1)
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	body := decodeBody(t, w)
+	require.Equal(t, float64(2), body["added"])
+	require.Equal(t, float64(4), body["total"])
+	require.Len(t, body["skipped"], 2)
+	w = do(t, s, http.MethodGet, "/v1/domains/example.test", readKey, "", "")
+	require.Equal(t, "list-import", decodeBody(t, w)["added_by"])
+	w = upload(writeKey, "file", "example.test\n", 1)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, float64(0), decodeBody(t, w)["added"])
+	for _, tc := range []struct {
+		name, key, field, text string
+		copies, status         int
+	}{
+		{"unauthenticated", "", "file", "third.test", 1, http.StatusUnauthorized},
+		{"read key", readKey, "file", "third.test", 1, http.StatusForbidden},
+		{"missing file", writeKey, "wrong", "third.test", 1, http.StatusUnprocessableEntity},
+		{"multiple files", writeKey, "file", "third.test", 2, http.StatusUnprocessableEntity},
+		{"empty file", writeKey, "file", "\r\n", 1, http.StatusBadRequest},
+		{"oversized", writeKey, "file", strings.Repeat("x", 8<<20), 1, http.StatusRequestEntityTooLarge},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := upload(tc.key, tc.field, tc.text, tc.copies)
+			require.Equal(t, tc.status, w.Code, w.Body.String())
+		})
+	}
 }

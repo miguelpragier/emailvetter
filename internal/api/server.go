@@ -62,6 +62,7 @@ func New(deps Deps) *Server {
 	s.registerVetBatch()
 	s.registerDomains()
 	s.registerImport()
+	s.registerFileImport()
 
 	s.server = &http.Server{
 		Addr:              deps.Cfg.Addr,

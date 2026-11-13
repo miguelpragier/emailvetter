@@ -138,6 +138,21 @@ optional note, with an optional `domain,note` header), and structured JSON
 (`{"domains":[{"domain":"example.test","note":"Example"}]}`). The import body
 limit is 8 MiB. Invalid and duplicate domains are skipped and reported.
 
+Upload a plain text domain list as a file (one domain per line):
+
+```sh
+curl --fail-with-body 'http://127.0.0.1:8080/v1/domains/import/file?added_by=operator' \
+  -H "Authorization: Bearer $EMAILVETTER_API_KEY" \
+  -F 'file=@disposable_email_domains_blocklist.txt;type=text/plain'
+```
+
+This endpoint requires a write key and accepts a single multipart field named
+`file`. The complete request must fit within 8 MiB. UTF-8 BOM, CRLF and blank
+lines are accepted. Empty files are rejected; invalid domains and duplicates
+are reported in the same summary as the regular import. Existing entries and
+notes are preserved; importing does not remove domains absent from the file.
+Check the source list's license before importing or redistributing it.
+
 | Method | Path | Description |
 |---|---|---|
 | GET | `/health` | Database availability and application version |
@@ -149,6 +164,7 @@ limit is 8 MiB. Invalid and duplicate domains are skipped and reported.
 | PATCH | `/v1/domains/{domain}` | Replace an entry's note |
 | DELETE | `/v1/domains/{domain}` | Remove an entry |
 | POST | `/v1/domains/import` | Import JSON, CSV, or plain text |
+| POST | `/v1/domains/import/file` | Upload a domain-per-line text file |
 
 ## Development
 

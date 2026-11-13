@@ -6,6 +6,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
+	"io"
 	"mime"
 	"net/http"
 	"strings"
@@ -65,6 +66,57 @@ func (s *Server) registerImport() {
 		raws, err := parseImport(in.RawBody, in.ContentType)
 		if err != nil {
 			return nil, huma.Error400BadRequest("malformed import: " + err.Error())
+		}
+		items, skipped := normalizeImport(raws, in.AddedBy)
+		added, existed, err := s.deps.Store.BulkCreate(ctx, items)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("import failed")
+		}
+		for _, d := range existed {
+			skipped = append(skipped, ImportSkipped{Input: d, Reason: "already_exists"})
+		}
+		return &ImportOutput{Body: ImportBody{Added: added, Skipped: skipped, Total: added + len(skipped)}}, nil
+	})
+}
+
+// FileImportInput accepts a domain-per-line file from a multipart upload.
+type FileImportInput struct {
+	AddedBy string `query:"added_by" doc:"Actor recorded for every imported row"`
+	RawBody huma.MultipartFormFiles[struct {
+		File huma.FormFile `form:"file" required:"true" contentType:"application/octet-stream,text/plain" doc:"UTF-8 text with one domain per line"`
+	}]
+}
+
+func (s *Server) registerFileImport() {
+	huma.Register(s.api, huma.Operation{
+		OperationID:  "import-domains-file",
+		Method:       http.MethodPost,
+		Path:         "/v1/domains/import/file",
+		Summary:      "Import a domain list file",
+		Description:  "Upload one UTF-8 text file in multipart field file, with one domain per line. Invalid and duplicate domains are skipped and reported. Existing entries are preserved. Maximum request size: 8 MiB including multipart headers.",
+		Security:     bearerSecurity(scopeDomainsWrite),
+		Tags:         []string{"domains"},
+		MaxBodyBytes: maxImportBytes,
+	}, func(ctx context.Context, in *FileImportInput) (*ImportOutput, error) {
+		defer in.RawBody.Form.RemoveAll()
+		file := in.RawBody.Data().File
+		defer file.Close()
+		if err := requireScope(ctx, scopeDomainsWrite); err != nil {
+			return nil, err
+		}
+		body, err := io.ReadAll(io.LimitReader(file, maxImportBytes+1))
+		if err != nil {
+			return nil, huma.Error400BadRequest("cannot read domain file")
+		}
+		if len(body) > maxImportBytes {
+			return nil, huma.Error413RequestEntityTooLarge("domain file exceeds 8 MiB")
+		}
+		raws, err := parseText(bytes.TrimPrefix(body, []byte{0xef, 0xbb, 0xbf}))
+		if err != nil {
+			return nil, huma.Error400BadRequest("cannot parse domain file")
+		}
+		if len(raws) == 0 {
+			return nil, huma.Error400BadRequest("domain file is empty")
 		}
 		items, skipped := normalizeImport(raws, in.AddedBy)
 		added, existed, err := s.deps.Store.BulkCreate(ctx, items)

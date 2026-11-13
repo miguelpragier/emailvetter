@@ -2,11 +2,10 @@
 
 ## Domain data
 
-This version bundles no third-party domain list. The earlier unversioned seed
-was removed because its source and redistribution terms were not recorded.
-Historical Git revisions still contain that seed; removing it from the current
-version does not establish permission to redistribute those historical copies.
-Existing databases are not modified or relicensed by this change.
+The original seed list was created manually by the project author, as confirmed
+by the maintainer. It remains in historical Git revisions under the repository's
+MIT license. This version does not bundle or automatically load that seed.
+Existing databases are not modified by its removal.
 
 Before adding any external list, record its repository or download URL, exact
 commit or release, retrieval date, SPDX license identifier (if available), required
