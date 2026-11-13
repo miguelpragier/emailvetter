@@ -19,7 +19,8 @@ import (
 	"github.com/miguelpragier/emailvetter/internal/store"
 )
 
-const version = "0.1.0"
+// version is injected by the release build; local builds report dev.
+var version = "dev"
 
 // Deps are the services the API depends on.
 type Deps struct {

@@ -43,9 +43,10 @@ EMAILVETTER_ADDR=127.0.0.1:8080 ./bin/emailvetter
 ```
 
 Defaults connect to rqlite at `http://127.0.0.1:4001`. On startup, the service
-creates its schema and imports the embedded domain seed once per database.
-Deleting a seeded domain does not cause it to return on restart. The seed is not
-automatically updated from external sources.
+creates missing tables. New databases start with an empty blocklist: add domains
+through the API or import a list after checking its license. No third-party domain
+list is bundled or downloaded automatically. Upgrading preserves existing entries,
+including any domains seeded by earlier versions.
 
 In a third terminal:
 
@@ -199,4 +200,37 @@ incorporation; this license does not relicense third-party data.
 GitHub Actions checks pull requests and pushes to `main` for formatting, Go vet,
 builds, unit and integration tests with the race detector, and secrets. Integration
 tests use a temporary rqlite service; no external database credentials are needed.
-The secrets job checks Git history with Gitleaks.
+The secrets job checks Git history with Gitleaks. CI also validates the GoReleaser
+configuration and builds all six release archives without publishing.
+
+## Releases
+
+After the CI checks pass on a push to `main`,
+[go-semantic-release](https://github.com/go-semantic-release/semantic-release)
+calculates the version from Conventional Commits and generates a GitHub release.
+Its [GoReleaser hook](https://github.com/go-semantic-release/hooks-goreleaser)
+builds archives for Linux, macOS, and Windows (amd64 and arm64), with SHA-256
+checksums. There are no npm dependencies. The release version is included in
+`/health` and OpenAPI; local builds report `dev`.
+
+- `fix: correct domain matching` produces a patch release.
+- `feat: add an endpoint` produces a minor release.
+- `feat!: change the response format` or a `BREAKING CHANGE:` footer produces a major release.
+- Changes such as `docs:`, `test:`, and `chore:` alone do not produce a release.
+
+The first release starts at `1.0.0`. Use squash merges with a Conventional Commit
+message, or ensure individual commits follow the convention when retaining them.
+Release notes live in GitHub Releases; no generated version commit is pushed back
+to `main`. The workflow uses the built-in `GITHUB_TOKEN` with `contents: write`
+only for publishing; it requires no personal access token. The release and its
+assets are produced in the same workflow, without depending on a tag-triggered run.
+
+For a local packaging check with GoReleaser v2 installed:
+
+```sh
+task release:check
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before contributing or importing
+external data.

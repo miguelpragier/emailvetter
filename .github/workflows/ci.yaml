@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
@@ -72,3 +72,51 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITLEAKS_ENABLE_COMMENTS: 'false'
+
+  package:
+    name: Check release archives
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: '~> v2'
+          install-only: true
+      - name: Validate GoReleaser configuration
+        run: goreleaser check
+      - name: Build archives without publishing
+        run: goreleaser release --snapshot --clean --skip=publish
+
+  release:
+    name: Publish semantic release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, secrets, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    concurrency:
+      group: release-main
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Publish semantic release with GoReleaser
+        uses: go-semantic-release/action@v1
+        with:
+          github-token: ${{ github.token }}
+          hooks: goreleaser
+        env:
+          GITHUB_TOKEN: ${{ github.token }}

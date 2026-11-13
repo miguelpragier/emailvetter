@@ -16,8 +16,8 @@ import (
 	"github.com/miguelpragier/emailvetter/internal/store"
 )
 
-// maxImportBytes bounds a single import body. The curated seed is ~800 rows and
-// bulk imports are of the same order, so 8 MiB is generous headroom.
+// maxImportBytes bounds a single import body, allowing bulk domain imports
+// while limiting memory use.
 const maxImportBytes = 8 << 20
 
 // ImportInput carries the raw import body plus an optional actor.

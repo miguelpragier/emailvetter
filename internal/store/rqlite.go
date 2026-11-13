@@ -14,10 +14,6 @@ import (
 	"github.com/miguelpragier/emailvetter/internal/schema"
 )
 
-// seedKey marks, in app_meta, that the curated domain list has been applied.
-// The seed runs exactly once, so a domain an operator deletes stays deleted.
-const seedKey = "blocked_domains_seed_v1"
-
 // rqliteStore implements Store against rqlite's HTTP API.
 type rqliteStore struct {
 	base string // e.g. "http://127.0.0.1:4001"
@@ -162,45 +158,15 @@ func (s *rqliteStore) Ping(ctx context.Context) error {
 	return err
 }
 
-// EnsureSchema applies the schema idempotently and seeds the curated domain
-// list exactly once.
+// EnsureSchema creates missing tables without modifying existing domain entries.
 func (s *rqliteStore) EnsureSchema(ctx context.Context) error {
 	for _, stmt := range splitSQL(schema.SQL) {
 		if _, err := s.execute(ctx, stmt); err != nil {
 			return fmt.Errorf("apply schema: %w", err)
 		}
 	}
-	rows, err := s.query(ctx, `SELECT value FROM app_meta WHERE key = ?`, seedKey)
-	if err != nil {
-		return err
-	}
-	if len(rows) > 0 {
-		return nil
-	}
-	return s.seed(ctx)
-}
-
-// seed inserts the curated list and the marker in one transaction, so a failed
-// seed is retried whole on the next start rather than half-applied.
-func (s *rqliteStore) seed(ctx context.Context) error {
-	now := time.Now().UTC().Format(time.RFC3339)
-	stmts := make([]any, 0, len(seedDomains)+1)
-	for _, d := range seedDomains {
-		stmts = append(stmts, statement(
-			`INSERT OR IGNORE INTO blocked_domains (domain, note, added_by, added_at) VALUES (?, '', 'seed', ?)`,
-			[]any{d, now}))
-	}
-	stmts = append(stmts, statement(
-		`INSERT OR IGNORE INTO app_meta (key, value) VALUES (?, ?)`,
-		[]any{seedKey, "1"}))
-	if _, err := s.executeBatch(ctx, stmts); err != nil {
-		return fmt.Errorf("seed blocked domains: %w", err)
-	}
 	return nil
 }
-
-// seedDomains is the curated list, split once at init.
-var seedDomains = strings.Fields(schema.SeedDomains)
 
 // splitSQL splits a SQL script on ";" into trimmed, non-empty statements. The
 // embedded schema contains no semicolon inside a string literal, so this is

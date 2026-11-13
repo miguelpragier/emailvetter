@@ -1,5 +1,4 @@
-// Package schema embeds the SQL schema and the curated disposable-domain seed
-// list applied by the store on first run.
+// Package schema embeds the SQL schema applied by the store on startup.
 package schema
 
 import _ "embed"
@@ -9,10 +8,3 @@ import _ "embed"
 //
 //go:embed schema.sql
 var SQL string
-
-// SeedDomains is the curated disposable-domain list, one domain per line. The
-// store applies it exactly once (gated by an app_meta marker), so a domain an
-// operator deletes stays deleted.
-//
-//go:embed seed_domains.txt
-var SeedDomains string

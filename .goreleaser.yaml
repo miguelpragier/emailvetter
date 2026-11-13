@@ -1,0 +1,31 @@
+version: 2
+project_name: emailvetter
+builds:
+  - main: ./cmd/emailvetter
+    binary: emailvetter
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+      - -buildvcs=false
+    ldflags:
+      - -s -w -X github.com/miguelpragier/emailvetter/internal/api.version={{ .Version }}
+archives:
+  - formats: [tar.gz]
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+      - THIRD_PARTY_NOTICES.md
+      - LICENSES/*
+checksum:
+  name_template: SHA256SUMS
+changelog:
+  disable: true
+release:
+  mode: keep-existing

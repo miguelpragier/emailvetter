@@ -6,3 +6,7 @@ bin/
 .env
 .env.*
 !.env.example
+
+# Release tooling and generated artifacts.
+dist/
+.semrel/

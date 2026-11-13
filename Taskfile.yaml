@@ -27,6 +27,15 @@ tasks:
     cmds:
       - gitleaks dir --redact .
 
+  release:check:
+    desc: Validate and build release archives without publishing (requires GoReleaser v2)
+    preconditions:
+      - sh: command -v goreleaser
+        msg: Install GoReleaser v2 first (https://goreleaser.com/install/).
+    cmds:
+      - goreleaser check
+      - goreleaser release --snapshot --clean --skip=publish
+
   build:
     desc: Build the emailvetter binary
     cmds:

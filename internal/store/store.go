@@ -37,7 +37,7 @@ type Store interface {
 	// Ping verifies the store is reachable.
 	Ping(ctx context.Context) error
 
-	// EnsureSchema applies the schema and seeds the curated domain list once.
+	// EnsureSchema creates missing tables without modifying domain entries.
 	EnsureSchema(ctx context.Context) error
 
 	// List returns the page matching the case-insensitive substring filter

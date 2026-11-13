@@ -26,12 +26,13 @@ type fakeDomain struct {
 	note, addedBy, addedAt string
 }
 
-func newFakeRqlite(t *testing.T) (*fakeRqlite, *httptest.Server) {
-	t.Helper()
-	f := &fakeRqlite{domains: map[string]fakeDomain{}, meta: map[string]string{}}
-	srv := httptest.NewServer(f)
-	t.Cleanup(srv.Close)
-	return f, srv
+// RoundTrip runs the fake HTTP handler in memory, without opening a socket.
+// Real HTTP/database behavior is covered by the integration tests.
+func (f *fakeRqlite) RoundTrip(r *http.Request) (*http.Response, error) {
+	defer r.Body.Close()
+	recorder := httptest.NewRecorder()
+	f.ServeHTTP(recorder, r)
+	return recorder.Result(), nil
 }
 
 func (f *fakeRqlite) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -204,8 +205,10 @@ func (f *fakeRqlite) delete(args []any) map[string]any {
 
 func newTestStore(t *testing.T) (Store, *fakeRqlite) {
 	t.Helper()
-	f, srv := newFakeRqlite(t)
-	return New(srv.URL, "", "", time.Second), f
+	f := &fakeRqlite{domains: map[string]fakeDomain{}, meta: map[string]string{}}
+	st := New("http://rqlite.test", "", "", time.Second).(*rqliteStore)
+	st.hc.Transport = f
+	return st, f
 }
 
 func TestCreateGetDelete(t *testing.T) {
@@ -299,17 +302,16 @@ func TestBulkCreate(t *testing.T) {
 	require.Equal(t, []string{"existing.com"}, existed)
 }
 
-func TestEnsureSchemaSeedsOnce(t *testing.T) {
+func TestEnsureSchemaPreservesDomains(t *testing.T) {
 	st, f := newTestStore(t)
 	ctx := t.Context()
 
 	require.NoError(t, st.EnsureSchema(ctx))
-	require.Len(t, f.domains, 814)
-	require.Equal(t, "1", f.meta[seedKey])
+	require.Empty(t, f.domains)
 
-	// A deleted domain must not come back on a later bootstrap.
-	delete(f.domains, "mailinator.com")
+	_, err := st.Create(ctx, "example.test", "operator entry", "test")
+	require.NoError(t, err)
 	require.NoError(t, st.EnsureSchema(ctx))
-	_, ok := f.domains["mailinator.com"]
-	require.False(t, ok)
+	require.Len(t, f.domains, 1)
+	require.Equal(t, "operator entry", f.domains["example.test"].note)
 }
