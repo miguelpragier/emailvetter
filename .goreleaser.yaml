@@ -28,4 +28,5 @@ checksum:
 changelog:
   disable: true
 release:
+  target_commitish: "{{ .Commit }}"
   mode: keep-existing

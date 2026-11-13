@@ -207,10 +207,9 @@ configuration and builds all six release archives without publishing.
 
 After the CI checks pass on a push to `main`,
 [go-semantic-release](https://github.com/go-semantic-release/semantic-release)
-calculates the version from Conventional Commits and generates a GitHub release.
-Its [GoReleaser hook](https://github.com/go-semantic-release/hooks-goreleaser)
-builds archives for Linux, macOS, and Windows (amd64 and arm64), with SHA-256
-checksums. There are no npm dependencies. The release version is included in
+calculates the version and release notes from Conventional Commits in dry-run mode.
+[GoReleaser](https://goreleaser.com/) builds archives for Linux, macOS, and Windows (amd64 and arm64), with SHA-256
+checksums and publishes the GitHub release after uploading the assets. There are no npm dependencies. The release version is included in
 `/health` and OpenAPI; local builds report `dev`.
 
 - `fix: correct domain matching` produces a patch release.
@@ -225,7 +224,7 @@ to `main`. The workflow uses the built-in `GITHUB_TOKEN` with `contents: write`
 only for publishing; it requires no personal access token. The release and its
 assets are produced in the same workflow, without depending on a tag-triggered run.
 
-For a local packaging check with GoReleaser v2 installed:
+For a local packaging check with GoReleaser v2.20.0 installed:
 
 ```sh
 task release:check
@@ -234,3 +233,9 @@ task release:check
 See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before contributing or importing
 external data.
+
+If a release exists but its asset upload failed, run the CI workflow manually from
+`main`, setting `release_tag` to that existing tag (for example `v1.0.0`). This
+rebuilds that tag and uploads its assets without calculating a new version. Both
+validation and publication use GoReleaser v2.20.0. Completed immutable releases
+cannot be modified; this recovery path is for releases that still permit uploads.
