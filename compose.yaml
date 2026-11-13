@@ -1,0 +1,11 @@
+services:
+  rqlite:
+    image: rqlite/rqlite:10.6.4
+    command: ["-node-id", "emailvetter-dev"]
+    ports:
+      - "127.0.0.1:4001:4001"
+    volumes:
+      - rqlite-data:/rqlite/file
+
+volumes:
+  rqlite-data:

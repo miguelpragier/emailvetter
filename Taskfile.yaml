@@ -1,0 +1,68 @@
+version: '3'
+
+vars:
+  BIN: bin/emailvetter
+
+tasks:
+  db:up:
+    desc: Start the persistent local rqlite database
+    cmds:
+      - docker compose up -d rqlite
+
+  db:down:
+    desc: Stop the local database (preserves data)
+    cmds:
+      - docker compose down
+
+  db:logs:
+    desc: Follow local database logs
+    cmds:
+      - docker compose logs -f rqlite
+
+  gleak:
+    desc: Scan files for secrets with Gitleaks
+    preconditions:
+      - sh: command -v gitleaks
+        msg: Install Gitleaks first (https://github.com/gitleaks/gitleaks).
+    cmds:
+      - gitleaks dir --redact .
+
+  build:
+    desc: Build the emailvetter binary
+    cmds:
+      - go build -o {{.BIN}} ./cmd/emailvetter
+
+  run:
+    desc: Run the server locally (requires .env and godotenv)
+    cmds:
+      - godotenv -f .env go run ./cmd/emailvetter
+
+  test:
+    desc: Run unit tests
+    cmds:
+      - go test ./...
+
+  test:integration:
+    desc: Run integration tests against a local rqlite on :4001
+    env:
+      EMAILVETTER_RQLITE_ADDR: http://127.0.0.1:4001
+    cmds:
+      - go test -run Integration -count=1 ./internal/...
+
+  vet:
+    desc: Vet and format-check the code
+    cmds:
+      - go vet ./...
+      - |
+        files=$(gofmt -l .)
+        if [ -n "$files" ]; then
+          printf '%s\n' "$files"
+          exit 1
+        fi
+
+  check:
+    desc: Run the full local check (vet, build, test)
+    cmds:
+      - task: vet
+      - task: build
+      - task: test

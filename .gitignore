@@ -1,0 +1,8 @@
+bin/
+*.exe
+
+# Secrets. The negation matters: .env.* would otherwise swallow the committed
+# .env.example, which is the only documentation of what production needs.
+.env
+.env.*
+!.env.example
